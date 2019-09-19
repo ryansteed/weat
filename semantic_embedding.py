@@ -7,32 +7,75 @@ import os
 cache_path = '.cache/cache.csv'
 
 
-def cache_embeddings(words, model_path, **kwargs):
-    print(words)
+def get_similarity(first, second, model_path, **kwargs):
+    first, second = _query_cache([first, second], model_path)
+    print(first)
+    print(second)
+
+
+def _query_cache(words, model_path):
     cache = _load_embeddings(cache_path)
-    cache['keys'] = cache[0].astype(str)
-    embeddings = _load_embeddings(model_path)
-    embeddings['keys'] = embeddings[0].str.lower().astype(str)
-    targets = embeddings[embeddings['keys'].str.contains("|".join(words))].copy()
-    print("cache", cache['keys'])
-    print("targets", targets['keys'])
+    if cache is None:
+        cache = cache_embeddings(words, model_path)
+    to_cache = []
+    for word in words:
+        matches = cache[cache['keys'].str.contains(word)]
+        print(word, matches.shape)
+        if matches.shape[0] < 1:
+            to_cache.append(word)
+        if matches.shape[0] > 1:
+            print("Warning: Multiple matches in cache for {}. Choose an expression with a unique match.".format(word))
+    cache_embeddings(to_cache, model_path)
+    return _regex_df_column(words, cache, 'keys').values
+
+
+def cache_embeddings(words, model_path, **kwargs):
+    """
+    Finds and caches new embeddedings for easy access
+
+    Example args: `cache_embeddings ^leader\W$ ^trustworthy$`
+
+    :param words: a list of regex tokens to match semantic embeddings to be added to the cache
+    :param model_path: the path of the GloVe model .txt file to use
+    :param kwargs: unused args
+    :return: the updated cache
+    """
+    print("Caching {}".format(words))
+    if len(words) < 1:
+        return
+    cache = _load_embeddings(cache_path)
+    embeddings = _load_embeddings(model_path, cache=True)
+    targets = _regex_df_column(words, embeddings, 'keys').copy()
     if cache is None:
         cache = targets
     else:
         cache = cache.merge(targets, on='keys', how='right')
-    print("cache", cache['keys'].head())
     _dump_embeddings(cache, cache_path)
+    return cache
 
 
-def _load_embeddings(path):
+def _regex_df_column(expressions, df, column):
+    if len(expressions) < 1:
+        return None
+    if len(expressions) == 1:
+        return df[df[column].str.contains(expressions[0])]
+    return df[df[column].str.contains("|".join(expressions))]
+
+
+def _load_embeddings(path, cache=False):
     print("Loading embeddings from {}".format(path))
     try:
-        try:
-            df = pd.read_pickle(get_pickle_path(path))
-        except (FileNotFoundError, EOFError):
-            df = pd.read_csv(path, sep=" ", header=None, line_terminator="\n")
+        if cache:
+            try:
+                df = pd.read_pickle(get_pickle_path(path))
+                df.rename(columns={0: 'keys'}, inplace=True)
+                df['keys'] = df['keys'].str.lower().astype(str)
+                return df
+            except (FileNotFoundError, EOFError):
+                pass
+        df = pd.read_csv(path, sep=" ", header=None)
+        if cache:
             df.to_pickle(get_pickle_path(path))
-        print("Loaded embeddings from {}".format(path))
         return df
     except pandas.errors.EmptyDataError:
         return None
@@ -40,6 +83,7 @@ def _load_embeddings(path):
 
 def _dump_embeddings(df, path):
     df.to_csv(path, sep=" ", header=False, index=False)
+    print("Dumped embeddings to {}".format(path))
 
 
 def get_pickle_path(path):
@@ -55,18 +99,19 @@ if __name__ == "__main__":
     )
     endpoint = sys.argv[1]
     method = None
+
+    parser.add_argument(
+        '--model_path',
+        type=str,
+        default='models/glove.840B.300d.txt',
+        help="Path to GloVe mapping to use"
+    )
     if endpoint == "cache_embeddings":
         parser.add_argument(
             'words',
             nargs='+',
             type=str,
             help="Path to list of words to save embeddings for"
-        )
-        parser.add_argument(
-            '--model_path',
-            type=str,
-            default='models/glove.840B.300d.txt',
-            help="Path to GloVe mapping to use"
         )
         method = cache_embeddings
     elif endpoint == "get_similarity":
@@ -80,6 +125,7 @@ if __name__ == "__main__":
             type=str,
             help="the second word"
         )
+        method = get_similarity
     else:
         raise ValueError("invalid endpoint")
     args = parser.parse_args()
