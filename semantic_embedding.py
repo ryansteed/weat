@@ -2,25 +2,25 @@ import argparse
 import sys
 import pandas as pd
 import pandas.errors
-import pickle
 import os
 
-cache_path = 'data/cache.txt'
+cache_path = '.cache/cache.csv'
 
 
 def cache_embeddings(words, model_path, **kwargs):
     print(words)
     cache = _load_embeddings(cache_path)
-    cache['words'] = cache[0].astype(str)
+    cache['keys'] = cache[0].astype(str)
     embeddings = _load_embeddings(model_path)
-    embeddings['words'] = embeddings[0].str.lower().astype(str)
-    targets = embeddings[embeddings[0].isin(words)].copy()
-    print(cache['words'].head())
-    print(targets['words'].head())
+    embeddings['keys'] = embeddings[0].str.lower().astype(str)
+    targets = embeddings[embeddings['keys'].str.contains("|".join(words))].copy()
+    print("cache", cache['keys'])
+    print("targets", targets['keys'])
     if cache is None:
         cache = targets
     else:
-        cache = cache.join(targets, on='words')
+        cache = cache.merge(targets, on='keys', how='right')
+    print("cache", cache['keys'].head())
     _dump_embeddings(cache, cache_path)
 
 
@@ -30,7 +30,7 @@ def _load_embeddings(path):
         try:
             df = pd.read_pickle(get_pickle_path(path))
         except (FileNotFoundError, EOFError):
-            df = pd.read_csv(path, sep=" ", header=None)
+            df = pd.read_csv(path, sep=" ", header=None, line_terminator="\n")
             df.to_pickle(get_pickle_path(path))
         print("Loaded embeddings from {}".format(path))
         return df
@@ -39,11 +39,11 @@ def _load_embeddings(path):
 
 
 def _dump_embeddings(df, path):
-    df.to_csv(path, sep=' ', header=False, index=False)
+    df.to_csv(path, sep=" ", header=False, index=False)
 
 
 def get_pickle_path(path):
-    return 'data/{}.pkl'.format(os.path.splitext(os.path.basename(path))[0])
+    return '.cache/{}.pkl'.format(os.path.splitext(os.path.basename(path))[0])
 
 
 if __name__ == "__main__":
