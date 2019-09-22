@@ -2,20 +2,20 @@ import argparse
 import sys
 import pandas as pd
 import pandas.errors
+from sklearn.metrics.pairwise import cosine_similarity
 import os
 
 cache_path = '.cache/cache.csv'
 
 
-def get_similarity(first, second, model_path, **kwargs):
-    first, second = _query_cache([first, second], model_path)
-    print(first)
-    print(second)
+def get_similarity(words, model_path, **kwargs):
+    return cosine_similarity(_query_cache(words, model_path)[:, 1:])
 
 
 def _query_cache(words, model_path):
     cache = _load_embeddings(cache_path)
     if cache is None:
+        print("No cache found. Generating new cache...")
         cache = cache_embeddings(words, model_path)
     to_cache = []
     for word in words:
@@ -68,12 +68,12 @@ def _load_embeddings(path, cache=False):
         if cache:
             try:
                 df = pd.read_pickle(get_pickle_path(path))
-                df.rename(columns={0: 'keys'}, inplace=True)
-                df['keys'] = df['keys'].str.lower().astype(str)
                 return df
             except (FileNotFoundError, EOFError):
                 pass
         df = pd.read_csv(path, sep=" ", header=None)
+        df.rename(columns={0: 'keys'}, inplace=True)
+        df['keys'] = df['keys'].str.lower().astype(str)
         if cache:
             df.to_pickle(get_pickle_path(path))
         return df
@@ -106,27 +106,18 @@ if __name__ == "__main__":
         default='models/glove.840B.300d.txt',
         help="Path to GloVe mapping to use"
     )
-    if endpoint == "cache_embeddings":
+    if endpoint in ["cache_embeddings", "get_similarity"]:
         parser.add_argument(
             'words',
             nargs='+',
             type=str,
             help="Path to list of words to save embeddings for"
         )
+    if endpoint == "cache_embeddings":
         method = cache_embeddings
     elif endpoint == "get_similarity":
-        parser.add_argument(
-            'first',
-            type=str,
-            help="the first word"
-        )
-        parser.add_argument(
-            'second',
-            type=str,
-            help="the second word"
-        )
         method = get_similarity
     else:
         raise ValueError("invalid endpoint")
     args = parser.parse_args()
-    method(**vars(args))
+    print(method(**vars(args)))
