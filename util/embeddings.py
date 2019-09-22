@@ -1,5 +1,3 @@
-import argparse
-import sys
 import pandas as pd
 import pandas.errors
 from sklearn.metrics.pairwise import cosine_similarity
@@ -17,8 +15,36 @@ class SemanticEmbedding:
     def get_embedding(self):
         return EmbeddingCache.query_cache([self.token], self.model_path)[:, 1:]
 
+    @staticmethod
+    def get_similarity_matrix(words, model_path):
+        return cosine_similarity([SemanticEmbedding(word, model_path).embedding for word in words])
+
 
 class EmbeddingCache:
+    @staticmethod
+    def cache_embeddings(words, model_path):
+        """
+        Finds and caches new embeddedings for easy access
+
+        Example args: `cache_embeddings ^leader\W$ ^trustworthy$`
+
+        :param words: a list of regex tokens to match semantic embeddings to be added to the cache
+        :param model_path: the path of the GloVe model .txt file to use
+        :return: the updated cache
+        """
+        print("Caching {}".format(words))
+        if len(words) < 1:
+            return
+        cache = EmbeddingCache.load_embeddings(cache_path)
+        embeddings = EmbeddingCache.load_embeddings(model_path, cache=True)
+        targets = EmbeddingCache.regex_df_column(words, embeddings, 'keys').copy()
+        if cache is None:
+            cache = targets
+        else:
+            cache = cache.merge(targets, on='keys', how='right')
+        EmbeddingCache.dump_embeddings(cache, cache_path)
+        return cache
+
     @staticmethod
     def regex_df_column(expressions, df, column):
         if len(expressions) < 1:
@@ -72,65 +98,3 @@ class EmbeddingCache:
     @staticmethod
     def _get_pickle_path(path):
         return '.cache/{}.pkl'.format(os.path.splitext(os.path.basename(path))[0])
-
-
-def get_similarity(words, model_path, **kwargs):
-    return cosine_similarity([SemanticEmbedding(word, model_path).embedding for word in words])
-
-
-def cache_embeddings(words, model_path, **kwargs):
-    """
-    Finds and caches new embeddedings for easy access
-
-    Example args: `cache_embeddings ^leader\W$ ^trustworthy$`
-
-    :param words: a list of regex tokens to match semantic embeddings to be added to the cache
-    :param model_path: the path of the GloVe model .txt file to use
-    :param kwargs: unused args
-    :return: the updated cache
-    """
-    print("Caching {}".format(words))
-    if len(words) < 1:
-        return
-    cache = EmbeddingCache.load_embeddings(cache_path)
-    embeddings = EmbeddingCache.load_embeddings(model_path, cache=True)
-    targets = EmbeddingCache.regex_df_column(words, embeddings, 'keys').copy()
-    if cache is None:
-        cache = targets
-    else:
-        cache = cache.merge(targets, on='keys', how='right')
-    EmbeddingCache.dump_embeddings(cache, cache_path)
-    return cache
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Find the similarity of two words using semantic embeddings.")
-    parser.add_argument(
-        'endpoint',
-        type=str,
-        help="the endpoint to run"
-    )
-    endpoint = sys.argv[1]
-    method = None
-
-    parser.add_argument(
-        '--model_path',
-        type=str,
-        default='models/glove.840B.300d.txt',
-        help="Path to GloVe mapping to use"
-    )
-    if endpoint in ["cache_embeddings", "get_similarity"]:
-        parser.add_argument(
-            'words',
-            nargs='+',
-            type=str,
-            help="Path to list of words to save embeddings for"
-        )
-    if endpoint == "cache_embeddings":
-        method = cache_embeddings
-    elif endpoint == "get_similarity":
-        method = get_similarity
-    else:
-        raise ValueError("invalid endpoint")
-    args = parser.parse_args()
-    print(method(**vars(args)))
