@@ -26,13 +26,10 @@ class EmbeddingCache:
         """
         Finds and caches new embeddedings for easy access
 
-        Example args: `cache_embeddings ^leader\W$ ^trustworthy$`
-
         :param words: a list of regex tokens to match semantic embeddings to be added to the cache
         :param model_path: the path of the GloVe model .txt file to use
         :return: the updated cache
         """
-        print("Caching {}".format(words))
         if len(words) < 1:
             return
         cache = EmbeddingCache.load_embeddings(cache_path)
@@ -92,7 +89,7 @@ class EmbeddingCache:
             if matches.shape[0] > 1:
                 print(
                     "Warning: Multiple matches in cache for {}. Choose an expression with a unique match.".format(word))
-        cache_embeddings(to_cache, model_path)
+        EmbeddingCache.cache_embeddings(to_cache, model_path)
         return EmbeddingCache.regex_df_column(words, cache, 'keys').values
 
     @staticmethod

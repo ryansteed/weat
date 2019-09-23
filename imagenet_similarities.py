@@ -9,21 +9,26 @@ def get_similarity_matrix(words, model_path, **kwargs):
 
 
 def cache_embeddings(words, model_path, **kwargs):
+    """
+    Example args: `cache_embeddings ^leader\W$ ^trustworthy$`
+    """
     return EmbeddingCache.cache_embeddings(words, model_path)
 
 
 def imagenet_similarity_matrix(parent, id_word_path, parent_child_path, model_path, **kwargs):
-    id_word = file_to_dict(id_word_path)
+    id_word = file_to_dict(id_word_path, sep="\t")
     print(id_word)
     parent_child = pd.read_csv(parent_child_path, sep="\t", header=None)
     print(parent_child)
+    children = parent_child[parent_child[0] == parent]
+    print(children)
 
 
-def file_to_dict(path):
+def file_to_dict(path, sep=" "):
     d = {}
     with open(path) as f:
         for line in f:
-            (key, val) = line.split()
+            (key, val) = line.strip("\n").split(sep)
             d[key] = val
     return d
 
@@ -51,10 +56,28 @@ if __name__ == "__main__":
             type=str,
             help="Path to list of words to save embeddings for"
         )
-    if endpoint == "cache_embeddings":
-        method = EmbeddingCache.cache_embeddings
+    print(endpoint)
+    if endpoint == "imagenet_similarity_matrix":
+        parser.add_argument(
+            'parent',
+            type=str,
+            help="Synset ID of parent to gather child IDs for"
+        )
+        parser.add_argument(
+            'id_word_path',
+            type=str,
+            help="Path to Synset ID / word table"
+        )
+        parser.add_argument(
+            'parent_child_path',
+            type=str,
+            help="Path to parent ID / child ID table"
+        )
+        method = imagenet_similarity_matrix
+    elif endpoint == "cache_embeddings":
+        method = cache_embeddings
     elif endpoint == "get_similarity":
-        method = SemanticEmbedding.get_similarity_matrix
+        method = get_similarity_matrix
     else:
         raise ValueError("invalid endpoint")
     args = parser.parse_args()
