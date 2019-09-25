@@ -5,6 +5,8 @@ from util.embeddings import SemanticEmbedding, EmbeddingCache
 
 
 def get_similarity_matrix(words, model_path, **kwargs):
+    if len(words) == 2:
+        return SemanticEmbedding.get_similarity_matrix(words, model_path)[0, 0]
     return SemanticEmbedding.get_similarity_matrix(words, model_path)
 
 
@@ -16,21 +18,29 @@ def cache_embeddings(words, model_path, **kwargs):
 
 
 def imagenet_similarity_matrix(parent, id_word_path, parent_child_path, model_path, **kwargs):
-    id_word = file_to_dict(id_word_path, sep="\t")
-    print(id_word)
-    parent_child = pd.read_csv(parent_child_path, sep="\t", header=None)
-    print(parent_child)
-    children = parent_child[parent_child[0] == parent]
-    print(children)
+    id_word = pd.read_csv(id_word_path, sep="\t", header=None)
+    id_word.columns = ["id", "token"]
+    parent_child = pd.read_csv(parent_child_path, sep=" ", header=None)
+    parent_child.columns = ["parent", "child"]
+    print("Finding children for parent {}".format(parent))
+    tokens = pd.merge(
+        id_word, parent_child[parent_child["parent"] == parent],
+        how="right", left_on="id", right_on="child"
+    )[["id", "token"]]
+    print(tokens)
+    tokens["similarity_trustworthy"] = tokens["token"].apply(
+        lambda x: get_similarity_matrix(["^{}$".format(x), "^trustworthy$"], model_path)
+    )
+    print(tokens)
 
 
-def file_to_dict(path, sep=" "):
-    d = {}
-    with open(path) as f:
-        for line in f:
-            (key, val) = line.strip("\n").split(sep)
-            d[key] = val
-    return d
+# def file_to_dict(path, sep=" "):
+#     d = {}
+#     with open(path) as f:
+#         for line in f:
+#             (key, val) = line.strip("\n").split(sep)
+#             d[key] = val
+#     return d
 
 
 if __name__ == "__main__":
