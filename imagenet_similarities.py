@@ -28,10 +28,12 @@ def imagenet_similarity_matrix(parent, id_word_path, parent_child_path, model_pa
         how="right", left_on="id", right_on="child"
     )[["id", "token"]]
     print(tokens)
-    tokens["similarity_trustworthy"] = tokens["token"].apply(
-        lambda x: get_similarity_matrix(["^{}$".format(x), "^trustworthy$"], model_path)
+    sim_matrix = get_similarity_matrix(
+        ["^trustworthy$"] + ["^{}$".format(x) for x in tokens["token"].values],
+        model_path
     )
-    print(tokens)
+    # TODO - this is loading from cache everytime - modify to do this in one run and return the matrix, please
+    print(sim_matrix)
 
 
 # def file_to_dict(path, sep=" "):
