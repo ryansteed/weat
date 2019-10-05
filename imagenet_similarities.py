@@ -1,6 +1,7 @@
 import sys
 import argparse
 import pandas as pd
+import numpy as np
 from util.embeddings import SemanticEmbedding, EmbeddingCache
 
 
@@ -17,7 +18,8 @@ def cache_embeddings(words, model_path, **kwargs):
     return EmbeddingCache.cache_embeddings(words, model_path)
 
 
-def imagenet_similarity_matrix(parent, id_word_path, parent_child_path, model_path, **kwargs):
+def imagenet_similarity_matrix(parent, id_word_path, parent_child_path, keywords, model_path, **kwargs):
+    # get the similarity matrix
     id_word = pd.read_csv(id_word_path, sep="\t", header=None)
     id_word.columns = ["id", "token"]
     parent_child = pd.read_csv(parent_child_path, sep=" ", header=None)
@@ -29,11 +31,35 @@ def imagenet_similarity_matrix(parent, id_word_path, parent_child_path, model_pa
     )[["id", "token"]]
     print(tokens)
     sim_matrix = get_similarity_matrix(
-        ["^trustworthy$"] + ["^{}$".format(x) for x in tokens["token"].values],
+        keywords + _parse_token_list_to_regex(tokens["token"].values),
         model_path
     )
-    print(sim_matrix)
+
+    # find the min/max for each keyword
+    np.fill_diagonal(sim_matrix, 0)
+    for i in range(len(keywords)):
+        print("## For keyword {} ##".format(keywords[i]))
+
+        # find the indices of the five largest similarity scores in this keyword's row
+        # of the similarity matrix
+        print("- Top Five Trustworthy Terms -")
+        print(tokens["token"][_get_min_max_n_indices(sim_matrix[:, i], 5, top_n=True)])
+        print("- Bottom Five Trustworthy Terms -")
+        print(tokens["token"][_get_min_max_n_indices(sim_matrix[:, i], 5, top_n=False)])
+
+        print("- Bottom Five Most Trustworthy Terms -")
+
     return sim_matrix
+
+
+def _get_min_max_n_indices(a, n, top_n=True):
+    i = -n if top_n else n
+    partition = np.argpartition(a, i)
+    return partition[i:] if top_n else partition[:i]
+
+
+def _parse_token_list_to_regex(tokens):
+    return ["^{}$".format(x) for x in tokens]
 
 
 # def file_to_dict(path, sep=" "):
@@ -84,6 +110,12 @@ if __name__ == "__main__":
             'parent_child_path',
             type=str,
             help="Path to parent ID / child ID table"
+        )
+        parser.add_argument(
+            '--keywords',
+            nargs='+',
+            type=str,
+            help="Keyword regex tokens to find min/max similarity for - e.g. `^trustworthy$`"
         )
         method = imagenet_similarity_matrix
     elif endpoint == "cache_embeddings":
