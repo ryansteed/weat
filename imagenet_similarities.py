@@ -18,7 +18,7 @@ def cache_embeddings(words, model_path, **kwargs):
     return EmbeddingCache.cache_embeddings(words, model_path)
 
 
-def imagenet_similarity_matrix(parent, id_word_path, parent_child_path, keywords, model_path, **kwargs):
+def imagenet_similarity_matrix(parent, id_word_path, parent_child_path, keywords, model_path, n=10, **kwargs):
     # get the similarity matrix
     id_word = pd.read_csv(id_word_path, sep="\t", header=None)
     id_word.columns = ["id", "token"]
@@ -43,9 +43,9 @@ def imagenet_similarity_matrix(parent, id_word_path, parent_child_path, keywords
         # find the indices of the five largest similarity scores in this keyword's row
         # of the similarity matrix
         print("- Top Five Trustworthy Terms -")
-        print(tokens["token"][_get_min_max_n_indices(sim_matrix[:, i], 5, top_n=True)])
+        print(tokens["token"][_get_min_max_n_indices(sim_matrix[:, i], n, top_n=True)])
         print("- Bottom Five Trustworthy Terms -")
-        print(tokens["token"][_get_min_max_n_indices(sim_matrix[:, i], 5, top_n=False)])
+        print(tokens["token"][_get_min_max_n_indices(sim_matrix[:, i], n, top_n=False)])
 
         print("- Bottom Five Most Trustworthy Terms -")
 
