@@ -1,3 +1,4 @@
 .cache
 models/*
 util/__pycache__
+*.egg-info
