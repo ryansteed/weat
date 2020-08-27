@@ -126,13 +126,13 @@ class Test:
         satisfies P[s(X_i, Y_i, A, B) > s(X, Y, A, B)]
         """
         assert self.X.shape[0] == self.Y.shape[0]
-        size = X.shape[0]
+        size = self.X.shape[0]
 
-        XY = np.concatenate((X, Y))
+        XY = np.concatenate((self.X, self.Y))
 
         if parametric:
             log.info('Using parametric test')
-            s = self.s_XYAB(np.arange(X.shape[0]), np.arange(X.shape[0], X.shape[0]+Y.shape[0]))
+            s = self.s_XYAB(np.arange(self.X.shape[0]), np.arange(self.X.shape[0], self.X.shape[0]+self.Y.shape[0]))
 
             log.info('Drawing {} samples'.format(n_samples))
             samples = []
@@ -165,7 +165,7 @@ class Test:
             total_equal = 0
             total = 0
 
-            num_partitions = int(scipy.special.binom(2 * len(X), len(X)))
+            num_partitions = int(scipy.special.binom(2 * self.X.shape[0], self.X.shape[0]))
             if num_partitions > n_samples:
                 # We only have as much precision as the number of samples drawn;
                 # bias the p-value (hallucinate a positive observation) to
@@ -188,9 +188,9 @@ class Test:
             else:
                 log.info('Using exact test ({} partitions)'.format(num_partitions))
                 # iterate through all possible X-length combinations of the indices of XY
-                for Xi in it.combinations(np.arange(XY.shape[0]), X.shape[0]):
+                for Xi in it.combinations(np.arange(XY.shape[0]), self.X.shape[0]):
                     assert 2 * len(Xi) == len(XY)
-                    si = self.s_XAB(Xi)
+                    si = self.s_XAB(np.array(Xi))
                     if si > s:
                         total_true += 1
                     elif si == s:  # use conservative test
@@ -211,8 +211,7 @@ class Test:
         args:
             - X, Y, A, B : sets of target (X, Y) and attribute (A, B) indices
         """
-        # numerator = mean_s_wAB(X, A, B, cossims=cossims) - mean_s_wAB(Y, A, B, cossims=cossims)
-        numerator = np.mean(self.s_wAB(np.arange(X.shape[0]))) - np.mean(self.s_wAB(np.arange(X.shape[0], X.shape[0]+Y.shape[0])))
+        numerator = np.mean(self.s_wAB(np.arange(self.X.shape[0]))) - np.mean(self.s_wAB(np.arange(self.X.shape[0], self.similarity_matrix.shape[0])))
         denominator = np.std(self.s_AB, ddof=1)
         return numerator / denominator
 

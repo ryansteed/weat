@@ -1,4 +1,4 @@
 .cache
 models/*
-util/__pycache__
+weat/__pycache__
 *.egg-info
