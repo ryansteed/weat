@@ -2,3 +2,4 @@
 models/*
 weat/__pycache__
 *.egg-info
+weat/akshat.py
