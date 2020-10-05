@@ -34,15 +34,31 @@ class Test:
         self.A = A
         self.B = B
         self.names = names if names is not None else ["X", "Y", "A", "B"]
+        self.reset_calc()
+
+    def reset_calc(self):
         log.info("Computing cosine similarities...")
-        self.similarity_matrix = self.similarity_matrix()
+        self.similarity_matrix = self.similarities()
         self.s_AB = None
         self.calc_s_AB()
 
-    def run(self, **kwargs):
+    def run(self, randomized=False, **kwargs):
         """
         Run the test.
         """
+        if randomized:
+            X_orig = self.X
+            Y_orig = self.Y
+            A_orig = self.A
+            B_orig = self.B
+            D = np.concatenate((self.X, self.Y, self.A, self.B))
+            np.random.shuffle(D)
+            self.X = D[:X_orig.shape[0],:]
+            self.Y = D[X_orig.shape[0]:2*X_orig.shape[0],:]
+            self.A = D[2*X_orig.shape[0]:2*X_orig.shape[0]+A_orig.shape[0], :]
+            self.B = D[2*X_orig.shape[0]+A_orig.shape[0]:, :]
+            self.reset_calc()
+
         log.info(
             "Null hypothesis: no difference between %s and %s in association to attributes %s and %s",
             *self.names
@@ -54,9 +70,16 @@ class Test:
         log.info("computing effect size...")
         e = self.effect_size()
         log.info("esize: %g", e)
+
+        if randomized:
+            self.X = X_orig
+            self.Y = Y_orig
+            self.A = A_orig
+            self.B = B_orig
+            self.reset_calc()
         return e, p  
 
-    def similarity_matrix(self):
+    def similarities(self):
         """
         :return: an array of size (len(XY), len(AB)) containing cosine similarities
         between items in XY and items in AB.
